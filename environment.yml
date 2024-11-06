@@ -1,0 +1,9 @@
+name: bredict
+channels:
+  - defaults
+dependencies:
+  - numpy=1.26.4
+  - python=3.12.4
+  - pytorch=2.3.0
+  - matplotlib=3.9.2
+  - pandas=2.2.2
