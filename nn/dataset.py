@@ -7,7 +7,6 @@ from util.seq import z_norm, min_max_scale, sma, cma, ema
 
 def zip_series_collate(batch):
     data, next_seq, idx = zip(*batch)
-    data_g = torch.randn(4, 100, 2)
     next_seq = torch.stack(next_seq, dim=0).unsqueeze(dim=2)
     st = torch.stack([torch.stack(list_of_tensors, dim=1) for list_of_tensors in data], dim=0)
     return st, next_seq, idx
@@ -16,7 +15,7 @@ def zip_series_collate(batch):
 def read_csv():
     df = pandas.read_csv('dataset/BTC-2021min.csv',
                          index_col=None,
-                         header=0)
+                         header=0, nrows=3000)
     uc = df[['unix', 'close', 'high']]
     uc.sort_values(by='unix', ascending=True, inplace=True)
     print(df)
@@ -25,12 +24,12 @@ def read_csv():
 
 class TsDataset(Dataset):
 
-    def __init__(self, shift_len=1, seq_length=400):
+    def __init__(self, shift_len=4, seq_length=50):
         self.data = read_csv()
         self.cv = self.data[['unix', 'close', 'high']]
         self.values = z_norm(torch.tensor(self.cv['close'], dtype=torch.float32))
         self.values = min_max_scale(torch.tensor(self.cv['close'], dtype=torch.float32))
-        self.s = min_max_scale(torch.tensor(sma(self.values, 4),dtype=torch.float32))
+        self.s = min_max_scale(torch.tensor(sma(self.values, 4), dtype=torch.float32))
         self.c = min_max_scale(torch.tensor(cma(self.values), dtype=torch.float32))
         self.e = min_max_scale(torch.tensor(ema(self.values, 0.2), dtype=torch.float32))
 
@@ -44,13 +43,10 @@ class TsDataset(Dataset):
         next_sequence_end = next_sequence_begin + self.shift_len
         sequence = self.values[idx: sequence_end]
         next_sequence = self.values[next_sequence_begin: next_sequence_end]
+
         s = self.s[idx: sequence_end]
         c = self.c[idx: sequence_end]
         e = self.e[idx: sequence_end]
-
-        # s = torch.full((100,), 3)
-        # c = torch.full((100,), 4)
-        # e = torch.full((100,), 5)
 
         return [sequence, s, c, e], next_sequence, idx
 
