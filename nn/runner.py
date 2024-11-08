@@ -37,16 +37,17 @@ class NNRunner:
         print(f"Test Error: Avg loss: {test_loss:>8f} \n")
 
     def train_loop(self, dataloader, model, loss_fn, optimizer):
+        model.train()
         size = len(dataloader.dataset)
         running_loss = 0
 
-        hidden = torch.full((100, 100), 1.0)
+        hidden = model.init_hidden()
 
-        for batch, (data, shift_next, index) in enumerate(dataloader, 0):
-            data, shift_next = data.to(self._device), shift_next.to(self._device)
+        for batch, (data, next_values, index) in enumerate(dataloader, 0):
+            data, next_values = data.to(self._device), next_values.to(self._device)
 
             predicted, hidden = model(data, hidden)
-            loss = loss_fn(predicted, shift_next)
+            loss = loss_fn(predicted, next_values)
 
             hidden = hidden.detach()
 
@@ -56,20 +57,18 @@ class NNRunner:
 
             running_loss += loss.item()
 
-            # self.sp.set_prediction(predicted[:, 0], batch, loss)
+            self.sp.set_prediction(predicted, batch, loss)
 
-            if batch % 100 == 0:
+            if batch % 10 == 0:
                 loss, current = loss.item(), (batch + 1) * len(data)
-                print(f"batch: [{batch}] loss: {loss:>7f}  [{current:>5d}/{size:>5d}] n:{shift_next[:1][0]} p:{predicted[:1][0]}")
-                # self.sp.update()
+                print(f"batch: [{batch}] loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+                self.sp.update()
 
         return running_loss
 
     def train(self):
-
         model = BredictNetwork()
         model = model.to(self._device)
-        model.train()
         print(model)
         print(f"Number of parameters: {sum(p.numel() for p in model.parameters())}")
 
@@ -77,13 +76,12 @@ class NNRunner:
         optimizer = torch.optim.SGD(model.parameters(), lr=self.learning_rate)
         loss = nn.MSELoss()
 
-        # self.sp.set_base_line(torch.tensor(loader.dataset.values))
-        # v = normalize(torch.tensor(loader.dataset.values), p=2, dim=0)
-        self.sp.set_base_line(loader.dataset.values)
+        # self.sp.set_base_line(loader.dataset.values)
 
         for t in range(self.epochs):
             print(f"Epoch {t + 1}\n" + SEPARATE)
             self.train_loop(loader, model, loss, optimizer)
+            # self.test_loop(loader, model, loss)
 
         torch.save(model, 'model.pth')
         print("Done!")
